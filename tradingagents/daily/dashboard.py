@@ -143,7 +143,11 @@ def _summary(decision: str) -> str:
 def build_extractor(llm: Any) -> Callable[[str], ExtractedFields | None]:
     # Force the tool call: the OpenAI-compatible client leaves tool_choice unset
     # for local servers, and a model that answers in prose yields no fields.
-    structured = llm.with_structured_output(ExtractedFields, tool_choice="ExtractedFields")
+    # Gemini enforces the schema natively and rejects the argument.
+    try:
+        structured = llm.with_structured_output(ExtractedFields, tool_choice="ExtractedFields")
+    except (TypeError, ValueError):
+        structured = llm.with_structured_output(ExtractedFields)
 
     def extract(prompt: str) -> ExtractedFields | None:
         try:

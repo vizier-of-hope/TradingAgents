@@ -255,3 +255,20 @@ def test_run_dashboard_returns_calls_by_model():
     report, calls = run_dashboard([], SESSION, NOW, graph_factory=lambda: FakeGraph({}),
                                   extractor=lambda p: None, has_data=lambda t, d: True)
     assert calls == {}
+
+
+def test_extractor_without_tool_choice_support():
+    # Gemini enforces the schema itself and rejects a tool_choice argument.
+    class GeminiLike:
+        def __init__(self):
+            self.calls = []
+
+        def with_structured_output(self, schema, **kwargs):
+            self.calls.append(kwargs)
+            if "tool_choice" in kwargs:
+                raise ValueError("Received unsupported arguments {'tool_choice': 'ExtractedFields'}")
+            return self
+
+    llm = GeminiLike()
+    build_extractor(llm)
+    assert llm.calls == [{"tool_choice": "ExtractedFields"}, {}]

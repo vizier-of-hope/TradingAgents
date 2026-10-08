@@ -26,7 +26,6 @@ on:
 
 permissions:
   contents: read
-  models: read
 
 env:
   TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -40,11 +39,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
-      TRADINGAGENTS_LLM_PROVIDER: openai_compatible
-      TRADINGAGENTS_LLM_BACKEND_URL: https://models.github.ai/inference
-      OPENAI_COMPATIBLE_API_KEY: ${{ secrets.GITHUB_TOKEN }}
-      TRADINGAGENTS_DEEP_THINK_LLM: ${{ vars.TRADINGAGENTS_DEEP_THINK_LLM }}
-      TRADINGAGENTS_QUICK_THINK_LLM: ${{ vars.TRADINGAGENTS_QUICK_THINK_LLM }}
+      # Gemini via a Google AI Studio key (free tier). Models can be changed
+      # with repository variables, without editing this file.
+      TRADINGAGENTS_LLM_PROVIDER: google
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      TRADINGAGENTS_DEEP_THINK_LLM: ${{ vars.TRADINGAGENTS_DEEP_THINK_LLM || 'gemini-3.8-flash' }}
+      TRADINGAGENTS_QUICK_THINK_LLM: ${{ vars.TRADINGAGENTS_QUICK_THINK_LLM || 'gemini-3.5-flash-lite' }}
       DAILY_ANALYSTS: ${{ vars.DAILY_ANALYSTS || 'market,news,fundamentals' }}
     steps:
       - uses: actions/checkout@v7
@@ -58,7 +58,7 @@ jobs:
       # The memory log lets each decision learn from earlier ones. Runners are
       # wiped after every run, so carry it forward in the Actions cache.
       - name: Restore memory log
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: ~/.tradingagents/memory
           key: ta-memory-${{ github.run_id }}
@@ -71,7 +71,7 @@ jobs:
           python -m tradingagents.daily "${args[@]}"
       - name: Save memory log
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.tradingagents/memory
           key: ta-memory-${{ github.run_id }}

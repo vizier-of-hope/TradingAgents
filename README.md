@@ -225,7 +225,7 @@ Two scheduled GitHub Actions jobs in `.github/workflows/daily.yml` send reports 
 Setup, on your own fork:
 
 1. Create a bot with [@BotFather](https://t.me/BotFather), send it a message, and read your chat ID from `https://api.telegram.org/bot<token>/getUpdates`.
-2. Under Settings → Secrets and variables → Actions, add the secrets `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`, and the variables `TRADINGAGENTS_QUICK_THINK_LLM` and `TRADINGAGENTS_DEEP_THINK_LLM` (GitHub Models IDs). The models run on [GitHub Models](https://github.com/marketplace/models) with the workflow's own token, so no LLM key is needed; its free daily request caps limit how many stocks fit. Optionally set `DAILY_ANALYSTS` (default `market,news,fundamentals`; add `social` for the sentiment analyst).
+2. Create a Gemini API key at [Google AI Studio](https://aistudio.google.com/apikey). Under Settings → Secrets and variables → Actions, add the secrets `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` and `GOOGLE_API_KEY`. The dashboard uses `gemini-3.5-flash-lite` for quick tasks and `gemini-3.8-flash` for decisions; set the variables `TRADINGAGENTS_QUICK_THINK_LLM` and `TRADINGAGENTS_DEEP_THINK_LLM` to use other Gemini models. The free tier's request limits decide how many stocks fit, and on the free tier Google may use prompts to improve its products. Optionally set `DAILY_ANALYSTS` (default `market,news,fundamentals`; add `social` for the sentiment analyst).
 3. Edit `watchlist.txt`: one ticker per line, up to 15.
 4. Try it from Actions → Daily Telegram reports → Run workflow, with `dry_run` ticked to print the messages to the log instead of sending them.
 
