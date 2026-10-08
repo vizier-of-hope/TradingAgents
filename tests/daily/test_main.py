@@ -1,6 +1,6 @@
 """python -m tradingagents.daily, with every collaborator faked."""
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -9,7 +9,7 @@ from tradingagents.daily.recap import RecapDataError
 from tradingagents.daily.schemas import DashboardEntry, DashboardReport, IndexQuote, MarketRecap
 from tradingagents.daily.watchlist import WatchlistError
 
-NOW = datetime(2026, 10, 6, 11, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 10, 6, 11, 0, tzinfo=UTC)
 ENV = {"TELEGRAM_BOT_TOKEN": "t", "TELEGRAM_CHAT_ID": "c"}
 
 RECAP = MarketRecap(

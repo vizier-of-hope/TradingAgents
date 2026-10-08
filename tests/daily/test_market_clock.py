@@ -1,12 +1,12 @@
 """Which US session each daily job reports on, from a fixed SGT schedule."""
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import pytest
 
 from tradingagents.daily.market_clock import session_for
 
-U = timezone.utc
+U = UTC
 
 
 def test_dashboard_normal_tuesday():

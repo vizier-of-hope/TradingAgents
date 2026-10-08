@@ -108,7 +108,8 @@ def _summary(decision: str) -> str:
     if match:
         text = match.group(1)
     else:
-        text = " ".join(l.strip() for l in decision.splitlines() if l.strip() and not l.lstrip().startswith(("#", "**Rating")))
+        lines = (line.strip() for line in decision.splitlines())
+        text = " ".join(line for line in lines if line and not line.startswith(("#", "**Rating")))
     return " ".join(re.split(r"(?<=[.!?])\s+", text.strip())[:2])
 
 

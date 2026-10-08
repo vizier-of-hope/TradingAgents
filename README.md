@@ -215,6 +215,22 @@ Each flag skips only its own question. Run without a terminal, a missing answer 
 
 A saved report also includes `complete_report.html`, the report as one page with its sections listed beside the text, for reading in a browser, on a phone or in print. Answering the save question at the prompt also asks about the page and can open it in your browser; `--no-html` skips it, and so does `ta.save_reports(state, "NVDA", html=False)` from Python.
 
+### Daily Telegram dashboard
+
+Two scheduled GitHub Actions jobs in `.github/workflows/daily.yml` send reports to a Telegram chat on US trading days:
+
+- **Decision Dashboard**, 19:00 SGT Monday to Friday, before the US open: each stock in `watchlist.txt` gets a lean analysis (market, news and fundamentals analysts, one debate round) condensed into a verdict (Buy / Watch / Sell, with the 5-tier rating), a 0-100 score, trend, sentiment, earnings outlook, risks, catalysts and the latest news. A risk or catalyst quoting a figure that is not in the analysts' reports is dropped.
+- **Market Recap**, 06:00 SGT Tuesday to Saturday, after the US close: S&P 500, Nasdaq and Dow, S&P 500 advancers, decliners and new 52-week highs and lows, and the leading and lagging sectors by SPDR sector ETF. It uses no LLM.
+
+Setup, on your own fork:
+
+1. Create a bot with [@BotFather](https://t.me/BotFather), send it a message, and read your chat ID from `https://api.telegram.org/bot<token>/getUpdates`.
+2. Under Settings → Secrets and variables → Actions, add the secrets `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`, and the variables `TRADINGAGENTS_QUICK_THINK_LLM` and `TRADINGAGENTS_DEEP_THINK_LLM` (GitHub Models IDs). The models run on [GitHub Models](https://github.com/marketplace/models) with the workflow's own token, so no LLM key is needed; its free daily request caps limit how many stocks fit. Optionally set `DAILY_ANALYSTS` (default `market,news,fundamentals`; add `social` for the sentiment analyst).
+3. Edit `watchlist.txt`: one ticker per line, up to 15.
+4. Try it from Actions → Daily Telegram reports → Run workflow, with `dry_run` ticked to print the messages to the log instead of sending them.
+
+Locally, `python -m tradingagents.daily recap --dry-run` prints the latest recap, and `--date YYYY-MM-DD` picks a session. GitHub turns off scheduled workflows on forks after 60 days without activity; running the workflow by hand turns them back on. The reports are research output from language models, not investment advice.
+
 ### Markets and tickers
 
 TradingAgents works with any market Yahoo Finance covers, using the exchange-suffixed ticker. Company identity and the alpha benchmark resolve automatically per market.

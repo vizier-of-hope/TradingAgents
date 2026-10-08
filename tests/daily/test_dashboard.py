@@ -1,6 +1,6 @@
 """Dashboard orchestration with a fake graph and a fake extractor: no LLM, no network."""
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -14,7 +14,7 @@ from tradingagents.daily.dashboard import (
 from tradingagents.daily.schemas import ExtractedFields
 
 SESSION = date(2026, 10, 5)
-NOW = datetime(2026, 10, 6, 11, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 10, 6, 11, 0, tzinfo=UTC)
 
 
 class RateLimitError(Exception):
@@ -48,8 +48,8 @@ class FakeGraph:
 
 
 def fields(**overrides):
-    base = dict(score=70, trend="bullish", sentiment="Positive.", earnings_outlook="Growing.",
-                risks=["Valuation stretched."], catalysts=["Revenue rose 56%."], latest="Launch.")
+    base = {"score": 70, "trend": "bullish", "sentiment": "Positive.", "earnings_outlook": "Growing.",
+                "risks": ["Valuation stretched."], "catalysts": ["Revenue rose 56%."], "latest": "Launch."}
     base.update(overrides)
     return ExtractedFields(**base)
 

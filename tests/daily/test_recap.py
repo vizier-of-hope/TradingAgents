@@ -56,8 +56,8 @@ def test_session_date_missing_raises():
 def _member_frame(close_by_ticker):
     return frame({
         "Close": close_by_ticker,
-        "High": {t: v for t, v in close_by_ticker.items()},
-        "Low": {t: v for t, v in close_by_ticker.items()},
+        "High": dict(close_by_ticker.items()),
+        "Low": dict(close_by_ticker.items()),
     })
 
 

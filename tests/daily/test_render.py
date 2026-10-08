@@ -1,6 +1,6 @@
 """Telegram text for the dashboard and the recap."""
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 from tradingagents.daily.render import render_dashboard, render_failure, render_recap
 from tradingagents.daily.schemas import (
@@ -10,7 +10,7 @@ from tradingagents.daily.schemas import (
     MarketRecap,
 )
 
-GENERATED = datetime(2026, 10, 6, 11, 0, tzinfo=timezone.utc)  # 19:00 SGT
+GENERATED = datetime(2026, 10, 6, 11, 0, tzinfo=UTC)  # 19:00 SGT
 
 NVDA = DashboardEntry(
     ticker="NVDA", name="NVIDIA Corporation", rating="Hold", verdict="watch",

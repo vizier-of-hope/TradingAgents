@@ -1,5 +1,7 @@
 """Watchlist file parsing for the daily dashboard."""
 
+import codecs
+
 import pytest
 
 from tradingagents.daily.watchlist import MAX_TICKERS, WatchlistError, load_watchlist
@@ -13,7 +15,7 @@ def test_parses_comments_blanks_case_and_duplicates(tmp_path):
 
 def test_bom_and_crlf_parse_like_clean_file(tmp_path):
     p = tmp_path / "w.txt"
-    p.write_bytes("﻿NVDA\r\nAAPL \r\n".encode("utf-8"))
+    p.write_bytes(codecs.BOM_UTF8 + b"NVDA\r\nAAPL \r\n")
     assert load_watchlist(p) == ["NVDA", "AAPL"]
 
 
