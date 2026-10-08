@@ -7,7 +7,8 @@ from datetime import date, timedelta
 from importlib.resources import files
 
 import pandas as pd
-import yfinance as yf
+
+from tradingagents.dataflows.vendors.yahoo.batch import download_batch
 
 from .schemas import IndexQuote, MarketRecap
 
@@ -98,17 +99,14 @@ def rank_sectors(df: pd.DataFrame, session_date: date) -> tuple[list[str], list[
 
 def build_recap(
     session_date: date,
-    download: Callable[..., pd.DataFrame] = yf.download,
+    download: Callable[..., pd.DataFrame] = download_batch,
     members: list[str] | None = None,
 ) -> MarketRecap:
     members = members if members is not None else load_members()
     end = session_date + timedelta(days=1)  # yfinance's end date is exclusive
 
     def fetch(tickers, days_back):
-        return download(
-            list(tickers), start=session_date - timedelta(days=days_back), end=end,
-            group_by="column", auto_adjust=False, progress=False, threads=True,
-        )
+        return download(list(tickers), start=session_date - timedelta(days=days_back), end=end)
 
     indices = index_quotes(fetch(INDICES, 10), session_date)
     leading, lagging = rank_sectors(fetch(SECTORS, 10), session_date)
