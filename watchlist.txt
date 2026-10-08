@@ -1,6 +1,5 @@
 # Daily Decision Dashboard watchlist.
 # One US ticker per line (Yahoo Finance symbols, e.g. BRK-B). Up to 15 tickers.
 # Text after # is a comment. Edit this file on GitHub to change the watchlist.
+# One ticker while measuring LLM calls per stock against GitHub Models' caps.
 NVDA
-AAPL
-MSFT
