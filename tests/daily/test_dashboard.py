@@ -2,10 +2,14 @@
 
 from datetime import UTC, date, datetime
 
+import pandas as pd
 import pytest
 
 from tradingagents.daily.dashboard import (
+    CallCounter,
+    build_extractor,
     extract_prompt,
+    has_market_data,
     is_quota_error,
     lean_config,
     run_dashboard,
@@ -42,6 +46,8 @@ class FakeGraph:
     def propagate(self, ticker, trade_date):
         self.calls.append((ticker, trade_date))
         outcome = self.script[ticker]
+        if isinstance(outcome, list):  # a sequence of outcomes, one per call
+            outcome = outcome.pop(0) if len(outcome) > 1 else outcome[0]
         if isinstance(outcome, BaseException):
             raise outcome
         return outcome, outcome["final_rating"]
@@ -54,10 +60,14 @@ def fields(**overrides):
     return ExtractedFields(**base)
 
 
-def run(script, extractor_results=None, tickers=None):
+SLEPT = []
+
+
+def run(script, extractor_results=None, tickers=None, has_data=lambda ticker, session: True):
     graph = FakeGraph(script)
     results = list(extractor_results or [])
     prompts = []
+    SLEPT.clear()
 
     def extractor(prompt):
         prompts.append(prompt)
@@ -67,6 +77,7 @@ def run(script, extractor_results=None, tickers=None):
         tickers or list(script), SESSION, NOW,
         graph_factory=lambda: graph, extractor=extractor,
         identity=lambda t: {"company_name": f"{t} Corp"},
+        has_data=has_data, sleep=SLEPT.append,
     )
     return report, graph, prompts
 
@@ -103,7 +114,7 @@ def test_quota_error_skips_remaining():
     report, graph, _ = run({"A": state("Buy"), "B": RateLimitError("429"), "C": state("Sell")})
     assert [e.verdict for e in report.entries] == ["buy", "skipped", "skipped"]
     assert report.entries[2].note == "daily model quota reached"
-    assert [c[0] for c in graph.calls] == ["A", "B"]
+    assert [c[0] for c in graph.calls] == ["A", "B", "B"]
 
 
 def test_quota_error_in_extractor_skips_remaining():
@@ -113,7 +124,8 @@ def test_quota_error_in_extractor_skips_remaining():
         raise RateLimitError("429")
 
     report, _ = run_dashboard(["A", "B"], SESSION, NOW, graph_factory=lambda: graph,
-                              extractor=extractor, identity=lambda t: {})
+                              extractor=extractor, identity=lambda t: {},
+                              has_data=lambda t, d: True, sleep=lambda s: None)
     assert [e.verdict for e in report.entries] == ["skipped", "skipped"]
     assert report.entries[0].name == "A"
 
@@ -181,3 +193,65 @@ def test_extract_prompt_truncates_reports():
     assert "Revenue rose 56%" in prompt          # news report included
     assert "Net margin 55%" not in prompt        # fundamentals not selected
     assert "Hold: 45-64" in prompt               # rubric present
+
+
+def test_no_market_data_is_review_without_llm_calls():
+    report, graph, _ = run({"NVDAA": state("Hold"), "AAPL": state("Buy")},
+                           has_data=lambda ticker, session: ticker != "NVDAA")
+    assert report.entries[0].verdict == "review"
+    assert report.entries[0].note == "No market data for NVDAA (mistyped or delisted?)"
+    assert [c[0] for c in graph.calls] == ["AAPL"]
+
+
+def test_has_market_data_reads_closes():
+    def frame(values):
+        return pd.DataFrame({("Close", "X"): values}, index=pd.bdate_range(end="2026-10-05", periods=len(values)))
+
+    assert has_market_data("X", SESSION, download=lambda *a, **k: frame([1.0, 2.0]))
+    assert not has_market_data("X", SESSION, download=lambda *a, **k: frame([float("nan")] * 2))
+    assert not has_market_data("X", SESSION, download=lambda *a, **k: pd.DataFrame())
+
+
+def test_transient_429_retries_ticker_after_pause():
+    report, graph, _ = run({"A": state("Buy"), "B": [RateLimitError("429"), state("Buy")], "C": state("Sell")})
+    assert [e.verdict for e in report.entries] == ["buy", "buy", "sell"]
+    assert SLEPT == [60]
+    assert [c[0] for c in graph.calls] == ["A", "B", "B", "C"]
+
+
+def test_persistent_429_after_pause_skips_remaining():
+    report, graph, _ = run({"A": state("Buy"), "B": RateLimitError("429"), "C": state("Sell")})
+    assert [e.verdict for e in report.entries] == ["buy", "skipped", "skipped"]
+    assert SLEPT == [60]
+
+
+def test_grounding_ignores_rubric_numbers():
+    report, _, _ = run({"NVDA": state("Hold")},
+                       extractor_results=[fields(risks=["Score could fall below 45."])])
+    assert report.entries[0].risks == []
+
+
+def test_extractor_forces_tool_call():
+    class FakeLLM:
+        def with_structured_output(self, schema, **kwargs):
+            self.schema, self.kwargs = schema, kwargs
+            return self
+
+    llm = FakeLLM()
+    build_extractor(llm)
+    assert llm.schema is ExtractedFields
+    assert llm.kwargs["tool_choice"] == "ExtractedFields"
+
+
+def test_call_counter_by_model():
+    counter = CallCounter()
+    for model in ("small", "small", "big"):
+        counter.on_chat_model_start({}, [], invocation_params={"model": model})
+    counter.on_llm_start({}, [], invocation_params={"model_name": "big"})
+    assert counter.by_model == {"small": 2, "big": 2}
+
+
+def test_run_dashboard_returns_calls_by_model():
+    report, calls = run_dashboard([], SESSION, NOW, graph_factory=lambda: FakeGraph({}),
+                                  extractor=lambda p: None, has_data=lambda t, d: True)
+    assert calls == {}

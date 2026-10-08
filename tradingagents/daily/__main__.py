@@ -39,7 +39,8 @@ def _messages(args, session_date: date, now_utc: datetime, deps: Deps) -> list[s
         return [render_recap(deps.build_recap(session_date))]
     tickers = deps.load_watchlist(args.watchlist)
     report, calls = deps.run_dashboard(tickers, session_date, now_utc)
-    print(f"LLM calls: {calls}")
+    per_model = ", ".join(f"{model}: {n}" for model, n in sorted(calls.items()))
+    print(f"LLM calls: {sum(calls.values())} ({per_model})")
     return render_dashboard(report)
 
 
@@ -70,9 +71,10 @@ def main(
         else:
             deps.send(messages, token, chat_id)
     except Exception as exc:
-        if token and chat_id:
+        if token and chat_id and not args.dry_run:
+            notice = render_failure(args.job, exc).replace(token, "***")
             try:
-                deps.send([render_failure(args.job, exc)], token, chat_id)
+                deps.send([notice], token, chat_id)
             except Exception as notice_exc:  # the original failure matters more
                 print(f"Could not send the failure notice: {notice_exc}", file=sys.stderr)
         raise

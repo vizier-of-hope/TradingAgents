@@ -55,11 +55,19 @@ def split_message(text: str, limit: int = LIMIT) -> list[str]:
 
 def _post(session, token: str, chat_id: str, text: str, sleep: Callable[[float], None]) -> None:
     for attempt in range(1, MAX_ATTEMPTS + 1):
-        response = session.post(
-            _URL.format(token=token),
-            json={"chat_id": chat_id, "text": text, "disable_web_page_preview": True},
-            timeout=30,
-        )
+        try:
+            response = session.post(
+                _URL.format(token=token),
+                json={"chat_id": chat_id, "text": text, "disable_web_page_preview": True},
+                timeout=30,
+            )
+        except requests.RequestException as exc:
+            # The exception's text quotes the URL, which carries the bot token:
+            # report only its type, and drop the chain that would print it.
+            if attempt == MAX_ATTEMPTS:
+                raise TelegramError(f"Telegram sendMessage failed: {type(exc).__name__}") from None
+            sleep(2 ** attempt)
+            continue
         if response.status_code == 200:
             return
         try:
@@ -88,4 +96,5 @@ def send(
     session = session or requests.Session()
     for text in texts:
         for part in split_message(text):
-            _post(session, token, chat_id, part, sleep)
+            if part.strip():  # Telegram rejects empty messages
+                _post(session, token, chat_id, part, sleep)

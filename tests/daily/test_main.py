@@ -10,7 +10,7 @@ from tradingagents.daily.schemas import DashboardEntry, DashboardReport, IndexQu
 from tradingagents.daily.watchlist import WatchlistError
 
 NOW = datetime(2026, 10, 6, 11, 0, tzinfo=UTC)
-ENV = {"TELEGRAM_BOT_TOKEN": "t", "TELEGRAM_CHAT_ID": "c"}
+ENV = {"TELEGRAM_BOT_TOKEN": "123456:test-token", "TELEGRAM_CHAT_ID": "c"}
 
 RECAP = MarketRecap(
     session_date=date(2026, 10, 5),
@@ -49,7 +49,7 @@ class Fakes:
 
         def run_dashboard(tickers, session_date, now_utc):
             self.dashboard_calls += 1
-            return REPORT, 37
+            return REPORT, {"m": 37}
 
         def load_watchlist(path):
             if isinstance(self._watchlist, BaseException):
@@ -126,3 +126,28 @@ def test_bad_watchlist_fails_before_llm():
         main(["dashboard"], now_utc=NOW, env=ENV, deps=fakes.deps())
     assert fakes.dashboard_calls == 0
     assert fakes.sent == [["❌ Dashboard run failed: WatchlistError: line 2: not a ticker"]]
+
+
+def test_dry_run_failure_does_not_send():
+    fakes = Fakes(recap=RecapDataError("no ^DJI"))
+    with pytest.raises(RecapDataError):
+        main(["recap", "--dry-run"], now_utc=NOW, env=ENV, deps=fakes.deps())
+    assert fakes.sent == []
+
+
+def test_failure_notice_scrubs_token():
+    token = "123456:ABC-secret"
+    fakes = Fakes(recap=RuntimeError(f"failed: /bot{token}/sendMessage"))
+    with pytest.raises(RuntimeError):
+        main(["recap"], now_utc=NOW, env={"TELEGRAM_BOT_TOKEN": token, "TELEGRAM_CHAT_ID": "c"},
+             deps=fakes.deps())
+    assert token not in fakes.sent[0][0]
+    assert "/bot***/sendMessage" in fakes.sent[0][0]
+
+
+def test_dashboard_prints_calls_by_model(capsys):
+    fakes = Fakes()
+    deps = fakes.deps()
+    deps.run_dashboard = lambda tickers, session_date, now_utc: (REPORT, {"small": 30, "big": 7})
+    main(["dashboard"], now_utc=NOW, env=ENV, deps=deps)
+    assert "LLM calls: 37 (big: 7, small: 30)" in capsys.readouterr().out

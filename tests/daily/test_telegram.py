@@ -1,6 +1,7 @@
 """Telegram Bot API sender: splitting and retries, with HTTP faked."""
 
 import pytest
+import requests
 
 from tradingagents.daily.telegram import TelegramError, send, split_message
 
@@ -89,3 +90,28 @@ def test_token_not_in_error_message():
     with pytest.raises(TelegramError) as info:
         send(["one"], TOKEN, "42", session=session, sleep=lambda s: None)
     assert TOKEN not in str(info.value)
+
+
+class FailingSession:
+    def __init__(self):
+        self.calls = 0
+
+    def post(self, url, json, timeout):
+        self.calls += 1
+        raise requests.ConnectionError(f"Max retries exceeded with url: /bot{TOKEN}/sendMessage")
+
+
+def test_network_error_retried_and_reported_without_token():
+    session = FailingSession()
+    with pytest.raises(TelegramError) as info:
+        send(["one"], TOKEN, "42", session=session, sleep=lambda s: None)
+    assert session.calls == 5
+    assert TOKEN not in str(info.value)
+    assert "ConnectionError" in str(info.value)
+    assert info.value.__cause__ is None and info.value.__suppress_context__
+
+
+def test_empty_text_sends_nothing():
+    session = FakeSession([(200, {"ok": True})])
+    send([""], TOKEN, "42", session=session, sleep=lambda s: None)
+    assert session.calls == []
